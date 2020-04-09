@@ -7,11 +7,6 @@ From: tensorflow/tensorflow:2.1.0-gpu-py3-jupyter
 # uploads the key to the Singularity hub.
 ./mjkey.txt /opt/mjkey.txt
 
-# mujoco_py/builder.py is replaced with ./_builder.py.
-# mujoco_py/builder.py uses fasteners.InterProcessLock,
-# which tries to make a lock file under a read-only directory.
-./_builder.py /opt/builder.py
-
 %environment
 export LANG=C.UTF-8
 export LD_LIBRARY_PATH=/opt/mujoco200/bin:${LD_LIBRARY_PATH}
@@ -57,8 +52,7 @@ export MUJOCO_PY_MUJOCO_PATH=/opt/mujoco200
 export MUJOCO_PY_MJKEY_PATH=/opt/mjkey.txt
 
 # --- Installing mujoco-py ---
-# Note: mujoco-py commit number is d73ce6e91d096b74da2a2fcb0a4164e10db5f641
-# Note: Workaround for https://bugs.launchpad.net/ubuntu/+source/nvidia-graphics-drivers-375/+bug/1674677
+# Workaround for https://bugs.launchpad.net/ubuntu/+source/nvidia-graphics-drivers-375/+bug/1674677
 wget -nv https://raw.githubusercontent.com/openai/mujoco-py/d73ce6e91d096b74da2a2fcb0a4164e10db5f641/vendor/Xdummy -O /usr/local/bin/Xdummy
 chmod +x /usr/local/bin/Xdummy
 
@@ -68,17 +62,16 @@ wget -nv https://raw.githubusercontent.com/openai/mujoco-py/d73ce6e91d096b74da2a
 cp /opt/mujoco200/bin/*.so /usr/local/lib/
 
 cd /opt
-git clone https://github.com/openai/mujoco-py.git
+git clone git@github.com:tadashiK/mujoco-py.git
 cd mujoco-py
 git checkout d73ce6e91d096b74da2a2fcb0a4164e10db5f641
 pip install --no-cache-dir -r requirements.txt
 pip install --no-cache-dir -r requirements.dev.txt
 python setup.py build install
-cd ..
 
 # The following lines do the initial build of mujoco_py.
 python -c 'import mujoco_py'
-mv /opt/builder.py /usr/local/lib/python3.6/dist-packages/mujoco_py-2.0.2.9-py3.6.egg/mujoco_py/builder.py
+mv ./_builder.py /usr/local/lib/python3.6/dist-packages/mujoco_py-2.0.2.9-py3.6.egg/mujoco_py/builder.py
 rm /opt/mjkey.txt
 
 pip install gym
