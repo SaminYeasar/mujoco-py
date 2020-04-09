@@ -1,0 +1,84 @@
+BootStrap: docker
+From: tensorflow/tensorflow:2.1.0-gpu-py3-jupyter
+
+%files
+# mjkey.txt is necessary for the initial build of mujoco_py.
+# Later, this key will be removed so that nobody accidentally
+# uploads the key to the Singularity hub.
+./mjkey.txt /opt/mjkey.txt
+
+# mujoco_py/builder.py is replaced with ./_builder.py.
+# mujoco_py/builder.py uses fasteners.InterProcessLock,
+# which tries to make a lock file under a read-only directory.
+./_builder.py /opt/builder.py
+
+%environment
+export LANG=C.UTF-8
+export LD_LIBRARY_PATH=/opt/mujoco200/bin:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
+export MUJOCO_PY_MUJOCO_PATH=/opt/mujoco200
+export MUJOCO_PY_MJKEY_PATH=${HOME}/.mujoco/mjkey.txt
+
+%post
+export LD_LIBRARY_PATH=/opt/mujoco200/bin:${LD_LIBRARY_PATH}
+
+apt-get update -q \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  curl \
+  git \
+  libgl1-mesa-dev \
+  libgl1-mesa-glx \
+  libglew-dev \
+  libosmesa6-dev \
+  software-properties-common \
+  net-tools \
+  unzip \
+  vim \
+  wget \
+  xpra \
+  xserver-xorg-dev
+
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+
+# --- Installing PatchELF ---
+curl -o /usr/local/bin/patchelf https://s3-us-west-2.amazonaws.com/openai-sci-artifacts/manual-builds/patchelf_0.9_amd64.elf
+chmod +x /usr/local/bin/patchelf
+
+# --- Installing MuJoCo ---
+
+cd /opt
+wget https://www.roboti.us/download/mujoco200_linux.zip -O mujoco.zip
+unzip mujoco.zip -d /opt
+mv /opt/mujoco200_linux /opt/mujoco200
+rm mujoco.zip
+
+export MUJOCO_PY_MUJOCO_PATH=/opt/mujoco200
+export MUJOCO_PY_MJKEY_PATH=/opt/mjkey.txt
+
+# --- Installing mujoco-py ---
+# Note: mujoco-py commit number is d73ce6e91d096b74da2a2fcb0a4164e10db5f641
+# Note: Workaround for https://bugs.launchpad.net/ubuntu/+source/nvidia-graphics-drivers-375/+bug/1674677
+wget -nv https://raw.githubusercontent.com/openai/mujoco-py/d73ce6e91d096b74da2a2fcb0a4164e10db5f641/vendor/Xdummy -O /usr/local/bin/Xdummy
+chmod +x /usr/local/bin/Xdummy
+
+mkdir -p /usr/share/glvnd/egl_vendor.d/
+wget -nv https://raw.githubusercontent.com/openai/mujoco-py/d73ce6e91d096b74da2a2fcb0a4164e10db5f641/vendor/10_nvidia.json -O /usr/share/glvnd/egl_vendor.d/10_nvidia.json
+
+cp /opt/mujoco200/bin/*.so /usr/local/lib/
+
+cd /opt
+git clone https://github.com/openai/mujoco-py.git
+cd mujoco-py
+git checkout d73ce6e91d096b74da2a2fcb0a4164e10db5f641
+pip install --no-cache-dir -r requirements.txt
+pip install --no-cache-dir -r requirements.dev.txt
+python setup.py build install
+cd ..
+
+# The following lines do the initial build of mujoco_py.
+python -c 'import mujoco_py'
+mv /opt/builder.py /usr/local/lib/python3.6/dist-packages/mujoco_py-2.0.2.9-py3.6.egg/mujoco_py/builder.py
+rm /opt/mjkey.txt
+
+pip install gym
