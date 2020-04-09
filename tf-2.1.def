@@ -5,7 +5,8 @@ From: tensorflow/tensorflow:2.1.0-gpu-py3-jupyter
 # mjkey.txt is necessary for the initial build of mujoco_py.
 # Later, this key will be removed so that nobody accidentally
 # uploads the key to the Singularity hub.
-./mjkey.txt /opt/mjkey.txt
+../mjkey.txt /opt/mjkey.txt
+../mujoco-py /opt/mujoco-py
 
 %environment
 export LANG=C.UTF-8
@@ -53,25 +54,24 @@ export MUJOCO_PY_MJKEY_PATH=/opt/mjkey.txt
 
 # --- Installing mujoco-py ---
 # Workaround for https://bugs.launchpad.net/ubuntu/+source/nvidia-graphics-drivers-375/+bug/1674677
-wget -nv https://raw.githubusercontent.com/openai/mujoco-py/d73ce6e91d096b74da2a2fcb0a4164e10db5f641/vendor/Xdummy -O /usr/local/bin/Xdummy
+cd /opt/mujoco-py
+cp ./vendor/Xdummy /usr/local/bin/Xdummy
 chmod +x /usr/local/bin/Xdummy
 
 mkdir -p /usr/share/glvnd/egl_vendor.d/
-wget -nv https://raw.githubusercontent.com/openai/mujoco-py/d73ce6e91d096b74da2a2fcb0a4164e10db5f641/vendor/10_nvidia.json -O /usr/share/glvnd/egl_vendor.d/10_nvidia.json
+cp ./vendor/10_nvidia.json /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 
 cp /opt/mujoco200/bin/*.so /usr/local/lib/
 
 cd /opt
-git clone git@github.com:tadashiK/mujoco-py.git
 cd mujoco-py
-git checkout d73ce6e91d096b74da2a2fcb0a4164e10db5f641
 pip install --no-cache-dir -r requirements.txt
 pip install --no-cache-dir -r requirements.dev.txt
 python setup.py build install
 
 # The following lines do the initial build of mujoco_py.
-python -c 'import mujoco_py'
 mv ./_builder.py /usr/local/lib/python3.6/dist-packages/mujoco_py-2.0.2.9-py3.6.egg/mujoco_py/builder.py
+python -c 'import mujoco_py'
 rm /opt/mjkey.txt
 
 pip install gym
